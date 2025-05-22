@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Browser TTS Bot</title>
   <script src="https://unpkg.com/tmi.js@2.5.1/dist/tmi.min.js"></script>
   <style>
-    #login, #logout { padding: 0.5em 1em; margin: 0.5em; }
+    #login,
+    #logout {
+      padding: 0.5em 1em;
+      margin: 0.5em;
+    }
   </style>
 </head>
+
 <body>
   <h1>Browser TTS Bot</h1>
   <button id="login">Login with Twitch</button>
@@ -15,132 +21,134 @@
   <pre id="log"></pre>
 
   <script>
-  const CLIENT_ID     = 'YOUR_CLIENT_ID';
-  const REDIRECT_URI  = location.origin + location.pathname; // same page
-  const SCOPES        = 'chat:read+chat:edit';
-  const COOKIE_NAME   = 'twitch_access_token';
-  const logEl         = document.getElementById('log');
-  const loginBtn      = document.getElementById('login');
-  const logoutBtn     = document.getElementById('logout');
+    const CLIENT_ID = 'rpxeacxzftzhcqofn9i1wgdhtt6his';
+    const CHANNEL_NAME = 'crostal';
+    const REDIRECT_URI = location.origin + location.pathname; // same page
+    const SCOPES = 'chat:read+chat:edit';
+    const COOKIE_NAME = 'twitch_access_token';
+    const logEl = document.getElementById('log');
+    const loginBtn = document.getElementById('login');
+    const logoutBtn = document.getElementById('logout');
 
-  function log(msg) {
-    logEl.textContent += msg + '\n';
-  }
-
-  // ——————————————————————————————————————————————
-  // 1) On load: check URL fragment or cookie
-  // ——————————————————————————————————————————————
-  window.addEventListener('load', () => {
-    // 1a) If URL has #access_token=…, grab it & set cookie
-    if (location.hash.includes('access_token')) {
-      const params = new URLSearchParams(location.hash.slice(1));
-      const token  = params.get('access_token');
-      const expiresIn = parseInt(params.get('expires_in') || '3600'); // seconds
-      
-      // Set a cookie that expires when the token does
-      const expireDate = new Date(Date.now() + expiresIn*1000);
-      document.cookie = `${COOKIE_NAME}=${token}; expires=${expireDate.toUTCString()}; path=/`;
-      
-      // Clean up URL (optional)
-      history.replaceState(null, '', location.pathname);
+    function log(msg) {
+      logEl.textContent += msg + '\n';
     }
 
-    // 1b) Read token from cookie
-    const token = readCookie(COOKIE_NAME);
-    if (token) {
-      setupTwitchClient(token);
-      loginBtn.style.display  = 'none';
-      logoutBtn.style.display = 'inline-block';
-    } else {
-      loginBtn.style.display  = 'inline-block';
-      logoutBtn.style.display = 'none';
+    // ——————————————————————————————————————————————
+    // 1) On load: check URL fragment or cookie
+    // ——————————————————————————————————————————————
+    window.addEventListener('load', () => {
+      // 1a) If URL has #access_token=…, grab it & set cookie
+      if (location.hash.includes('access_token')) {
+        const params = new URLSearchParams(location.hash.slice(1));
+        const token = params.get('access_token');
+        const expiresIn = parseInt(params.get('expires_in') || '3600'); // seconds
+
+        // Set a cookie that expires when the token does
+        const expireDate = new Date(Date.now() + expiresIn * 1000);
+        document.cookie = `${COOKIE_NAME}=${token}; expires=${expireDate.toUTCString()}; path=/`;
+
+        // Clean up URL (optional)
+        history.replaceState(null, '', location.pathname);
+      }
+
+      // 1b) Read token from cookie
+      const token = readCookie(COOKIE_NAME);
+      if (token) {
+        setupTwitchClient(token);
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+      } else {
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+      }
+    });
+
+    // ——————————————————————————————————————————————
+    // 2) Helpers: read cookie by name
+    // ——————————————————————————————————————————————
+    function readCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
     }
-  });
 
-  // ——————————————————————————————————————————————
-  // 2) Helpers: read cookie by name
-  // ——————————————————————————————————————————————
-  function readCookie(name) {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? match[2] : null;
-  }
-
-  // ——————————————————————————————————————————————
-  // 3) “Login” button: redirect to Twitch OAuth
-  // ——————————————————————————————————————————————
-  loginBtn.onclick = () => {
-    const authUrl =
-      `https://id.twitch.tv/oauth2/authorize` +
-      `?client_id=${CLIENT_ID}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&response_type=token` +
-      `&scope=${SCOPES}` +
-      `&force_verify=true`;
-    location.href = authUrl;
-  };
-
-  // ——————————————————————————————————————————————
-  // 4) “Logout” button: clear cookie & reload
-  // ——————————————————————————————————————————————
-  logoutBtn.onclick = () => {
-    document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-    location.reload();
-  };
-
-  // ——————————————————————————————————————————————
-  // 5) Initialize tmi.js with stored token
-  // ——————————————————————————————————————————————
-  function setupTwitchClient(token) {
-    const username = 'justinfan' + Math.floor(Math.random()*1e6); 
-    const client = new tmi.Client({
-      identity: { username, password: 'oauth:' + token },
-      channels: [ 'YOUR_CHANNEL_NAME' ]
-    });
-
-    client.connect()
-      .then(() => log('✅ Connected to Twitch chat'))
-      .catch(err => log('❌ Chat error: ' + err));
-
-    client.on('message', (_channel, tags, message, self) => {
-      if (self) return;
-      if (!message.startsWith('!tts ')) return;
-      const text = message.slice(5);
-      speak(text);
-      log(`Spoken: ${text}`);
-    });
-
-    // ——————————————————————————————————
-    // 6) Web Speech API TTS + Recording
-    // ——————————————————————————————————
-    const synth = window.speechSynthesis;
-    const audioCtx = new AudioContext();
-    const dest    = audioCtx.createMediaStreamDestination();
-    const recorder= new MediaRecorder(dest.stream);
-
-    recorder.ondataavailable = e => {
-      // Play back the recorded blob so OBS/browser captures it
-      const url = URL.createObjectURL(e.data);
-      new Audio(url).play();
+    // ——————————————————————————————————————————————
+    // 3) “Login” button: redirect to Twitch OAuth
+    // ——————————————————————————————————————————————
+    loginBtn.onclick = () => {
+      const authUrl =
+        `https://id.twitch.tv/oauth2/authorize` +
+        `?client_id=${CLIENT_ID}` +
+        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+        `&response_type=token` +
+        `&scope=${SCOPES}` +
+        `&force_verify=true`;
+      location.href = authUrl;
     };
 
-    // Monkey-patch .speak so we record each utterance
-    const origSpeak = synth.speak.bind(synth);
-    synth.speak = (utter) => {
-      // route speech to our MediaStream
-      const source = audioCtx.createMediaStreamSource(dest.stream);
-      source.connect(audioCtx.destination);
-      recorder.start();
-      origSpeak(utter);
-      utter.onend = () => recorder.stop();
+    // ——————————————————————————————————————————————
+    // 4) “Logout” button: clear cookie & reload
+    // ——————————————————————————————————————————————
+    logoutBtn.onclick = () => {
+      document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      location.reload();
     };
-  }
 
-  // Simple wrapper to speak text
-  function speak(text) {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US';
-    window.speechSynthesis.speak(u);
-  }
+    // ——————————————————————————————————————————————
+    // 5) Initialize tmi.js with stored token
+    // ——————————————————————————————————————————————
+    function setupTwitchClient(token) {
+      const username = 'justinfan' + Math.floor(Math.random() * 1e6);
+      const client = new tmi.Client({
+        identity: { username, password: 'oauth:' + token },
+        channels: [CHANNEL_NAME]
+      });
+
+      client.connect()
+        .then(() => log('✅ Connected to Twitch chat'))
+        .catch(err => log('❌ Chat error: ' + err));
+
+      client.on('message', (_channel, tags, message, self) => {
+        if (self) return;
+        if (!message.startsWith('!tts ')) return;
+        const text = message.slice(5);
+        speak(text);
+        log(`Spoken: ${text}`);
+      });
+
+      // ——————————————————————————————————
+      // 6) Web Speech API TTS + Recording
+      // ——————————————————————————————————
+      const synth = window.speechSynthesis;
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      const recorder = new MediaRecorder(dest.stream);
+
+      recorder.ondataavailable = e => {
+        // Play back the recorded blob so OBS/browser captures it
+        const url = URL.createObjectURL(e.data);
+        new Audio(url).play();
+      };
+
+      // Monkey-patch .speak so we record each utterance
+      const origSpeak = synth.speak.bind(synth);
+      synth.speak = (utter) => {
+        // route speech to our MediaStream
+        const source = audioCtx.createMediaStreamSource(dest.stream);
+        source.connect(audioCtx.destination);
+        recorder.start();
+        origSpeak(utter);
+        utter.onend = () => recorder.stop();
+      };
+    }
+
+    // Simple wrapper to speak text
+    function speak(text) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      window.speechSynthesis.speak(u);
+    }
   </script>
 </body>
+
 </html>

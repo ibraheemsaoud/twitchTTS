@@ -29,12 +29,12 @@
   <script src="./audio_controls.js"></script>
   <script>
     // ——————————————————————————————————
-    // 6) Web Speech API TTS + Recording
+    // 6) Web Speech API TTS + Recording with Queue
     // ——————————————————————————————————
-    const synth = window.speechSynthesis;
-    const audioCtx = new AudioContext();
-    const dest = audioCtx.createMediaStreamDestination();
-    const recorder = new MediaRecorder(dest.stream);
+
+    // Message queue and processing state
+    let isSpeaking = false;
+    const delayBetweenMessages = 500; // ms delay between messages
 
     recorder.ondataavailable = e => {
       // Play back the recorded blob so OBS/browser captures it
@@ -51,18 +51,52 @@
       if (recorder.state === 'recording') {
         return;
       }
-      // Attach event handlers before starting speech
-      utter.onend = () => recorder.stop();
-      utter.onerror = (e) => recorder.stop();
+      // Start recording
       recorder.start();
       origSpeak(utter);
     };
 
-    // Simple wrapper to speak text
-    function speak(text) {
+    // Process the next message in the queue
+    function processNextMessage() {
+      setTimeout(() => {
+        if (messageQueue.length > 0 && !isSpeaking) {
+          isSpeaking = true;
+          const text = messageQueue.shift();
+          speakNow(text);
+        } else {
+          isSpeaking = false;
+        }
+      }, delayBetweenMessages);
+    }
+
+    // Internal function to actually speak the text
+    function speakNow(text) {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'en-US';
+      
+      u.onend = () => {
+        recorder.stop();
+        isSpeaking = false;
+        processNextMessage();
+      };
+      
+      u.onerror = () => {
+        recorder.stop();
+        isSpeaking = false;
+        processNextMessage();
+      };
+      
       window.speechSynthesis.speak(u);
+    }
+
+    // Public function to add text to the speech queue
+    function speak(text) {
+      messageQueue.push(text);
+      
+      // If not currently speaking, start processing the queue
+      if (!isSpeaking) {
+        processNextMessage();
+      }
     }
   </script>
 </body>

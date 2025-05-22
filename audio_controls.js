@@ -9,6 +9,8 @@ document.getElementById("start").addEventListener("click", () => {
 
 document.getElementById("pause").addEventListener("click", () => {
   window.audioEnabled = false;
+  messageQueue = [];
+  recorder.pause();
   if (window.speechSynthesis) {
     window.speechSynthesis.cancel(); // Stop any ongoing speech
   }

@@ -18,7 +18,7 @@ function setupTwitchClient(token) {
 
   client.on("message", (_channel, tags, message, self) => {
     // if (self) return;
-    // if (!message.startsWith('!tts ')) return;
+    if (!message.startsWith('!tts ')) return;
     const text = message.slice(5);
     speak(text);
     log(`${tags.username}: ${text}`);
@@ -55,6 +55,6 @@ if (channelInput) {
           currentChannel = newChannel;
         }
       }
-    }, 2000); // Update after 2 seconds of inactivity
+    }, 500); // Update after 500ms of inactivity
   });
 }

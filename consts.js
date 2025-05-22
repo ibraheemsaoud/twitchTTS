@@ -16,4 +16,10 @@ function status(msg) {
 }
 
 const channelInput = document.getElementById("channel_name");
-const currentChannel = channelInput ? channelInput.value.trim() : "";
+let currentChannel = channelInput ? channelInput.value.trim() : "";
+
+let messageQueue = [];
+const synth = window.speechSynthesis;
+const audioCtx = new AudioContext();
+const dest = audioCtx.createMediaStreamDestination();
+const recorder = new MediaRecorder(dest.stream);

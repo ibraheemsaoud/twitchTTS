@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Browser TTS Bot</title></head>
+<body>
+  <h1>Browser TTS</h1>
+  <button id="login">Login to Twitch</button>
+  <pre id="log"></pre>
+
+  <script src="https://unpkg.com/tmi.js@2.5.1/dist/tmi.min.js"></script>
+  <script>
+  const log = msg => document.getElementById('log').textContent += msg + '\n';
+
+  // 1) OAuth via PKCE or Implicit — you get an access_token in URL hash
+  document.getElementById('login').onclick = () => {
+    const clientId = 'rpxeacxzftzhcqofn9i1wgdhtt6his';
+    const redirect = encodeURIComponent(location.href);
+    // implicit grant (not recommended for production) 
+    location.href = 
+      `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}` +
+      `&redirect_uri=${redirect}&response_type=token` +
+      `&scope=chat:read+chat:edit`;
+  };
+
+  // 2) Once we have #access_token=… in URL
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const token = hash.get('access_token');
+  if (token) {
+    const client = new tmi.Client({
+      options: { debug: true },
+      identity: { username: 'justinfan1234', password: 'oauth:' + token },
+      channels: [ 'crostal' ]
+    });
+
+    // 3) Set up Web Speech + recorder
+    const synth = window.speechSynthesis;
+    const audioCtx = new AudioContext();
+    const dest    = audioCtx.createMediaStreamDestination();
+    const recorder= new MediaRecorder(dest.stream);
+    recorder.ondataavailable = e => {
+      // e.data is a Blob with your TTS audio
+      log(`Recorded ${e.data.size} bytes`);
+      // → you can save it, or just play it:
+      const url = URL.createObjectURL(e.data);
+      new Audio(url).play();
+    };
+
+    // Connect synth to the recorder
+    const utterancePrototype = Object.getPrototypeOf(new SpeechSynthesisUtterance());
+    const origSpeak = synth.speak.bind(synth);
+    synth.speak = (utterance) => {
+      // create a dummy oscillator to “fan in” the speech into our dest
+      const src = audioCtx.createMediaStreamSource(dest.stream);
+      src.connect(audioCtx.destination);
+      dest.stream; // start stream
+      recorder.start();
+      origSpeak(utterance);
+      utterance.onend = () => recorder.stop();
+    };
+
+    // 4) Listen for chat
+    client.connect().then(() => log('Connected to Twitch chat'));
+    client.on('message', (channel, tags, message, self) => {
+      if (self) return;
+      if (!message.startsWith('!tts ')) return;
+      const text = message.slice(5);
+      const utter = new SpeechSynthesisUtterance(text);
+      synth.speak(utter);
+      log(`Spoken: ${text}`);
+    });
+  }
+  </script>
+</body>
+</html>
